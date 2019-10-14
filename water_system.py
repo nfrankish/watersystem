@@ -1,10 +1,11 @@
 import mqtt_helper
 from zone import Zone
-import threading
 import RPi.GPIO as GPIO
 import paho.mqtt.client as mqtt
-import time
+
+
 import logging
+
 
 zones =[]
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,8 +28,9 @@ def mqtt_setup():
     mqttc.connect(MQTT_HOST,MQTT_PORT)
     mqttc.on_message=on_message
     mqttc.loop_start()
-    for zone in zones:
-        mqttc.subscribe()
+    for z in zones:
+        mqttc.publish(mqtt_helper.get_relay_config_topic(z.zone_id))
+        mqttc.subscribe(mqtt_helper.get_relay_command_topic(z.zone_id))
 
 if __name__ == '__main__':
     setup()

@@ -23,8 +23,9 @@ try:
     logging.info("Connecting to MQTT on %s:%s"%(MQTT_HOST,MQTT_PORT))
 
     logging.debug("Subscribing to topic - %s" % RELAY_COMMAND_TOPIC)
-    mqttc.publish(RELAY_CONFIG_TOPIC, retain=True)
-    mqttc.publish("homeassistant/switch/irrigation/config", retain=True)
+    ##These are just here to force delete the queue if needed
+    #mqttc.publish(RELAY_CONFIG_TOPIC, retain=True)
+    #mqttc.publish("homeassistant/switch/irrigation/config", retain=True)
     mqttc.subscribe(RELAY_COMMAND_TOPIC)
     subscribe_message = {}
     subscribe_message['name']='GardenTest'
