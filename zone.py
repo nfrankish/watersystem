@@ -1,7 +1,6 @@
 import threading
 
 import RPi.GPIO as GPIO
-import paho.mqtt.client as mqtt
 import time
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,9 +20,9 @@ class Zone(threading.Thread):
         GPIO.output(self.relay_pin, GPIO.HIGH)
         # setting up the sensor pin
         GPIO.setup(self.sensor_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.sensor_pin, GPIO.RISING, callback=self.pulse_counter)
+        GPIO.add_event_detect(self.sensor_pin, GPIO.RISING, callback=self._pulse_counter)
 
-    def pulse_counter(self,channel):
+    def _pulse_counter(self,channel):
         self._water_counter += 1
 
     def water_used_in_liters(self):
@@ -38,6 +37,12 @@ class Zone(threading.Thread):
         GPIO.output(self.relay_pin, GPIO.HIGH)
         self.watering = 0
 
+    def get_state(self):
+        if self.watering:
+            return 'On'
+        else:
+            return 'Off'
+
     def stop(self):
         self.stop_watering()
         self._stop.set()
@@ -45,17 +50,21 @@ class Zone(threading.Thread):
     def stopped(self):
         return self._stop.isSet()
 
+    def _calculate_water(self):
+        stamp1 = self._water_counter
+        time.sleep(1)
+        stamp2 = self._water_counter
+        pps = (abs(stamp1 - stamp2))
+        self.liters_used = self.liters_used + pps / (5 * 60)
+        self.flow_rate = pps / (5 * 60)
+
     def run(self):
-        while True:
-            if self.stopped():
-                logging.debug("Thread for zone %d asked to stop" % (i.zone_id))
-                return
-            stamp1 = self._water_counter
-            time.sleep(1)
-            stamp2 = self._water_counter
-            pps = (abs(stamp1 - stamp2))
-            self.liters_used = self.liters_used + pps / (5 * 60)
-            self.flow_rate = pps / (5 * 60)
+        while not self.stopped():
+            self._calculate_water()
+
+        logging.debug("Thread for zone %d asked to stop" % (i.zone_id))
+
+
 
 if __name__ == '__main__':
     GPIO.setmode(GPIO.BCM)
@@ -76,6 +85,8 @@ if __name__ == '__main__':
     except:
         print("exception occured")
     finally:
-        i.stop_watering()
-        i.join()
-        GPIO.cleanup()
+        try:
+            i.stop_watering()
+            i.join()
+        finally:
+            GPIO.cleanup()

@@ -1,17 +1,12 @@
 import json
-import traceback
 
-import requests
-import sys
-import time
-import datetime
 import paho.mqtt.client as mqtt
 import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 MQTT_HOST = 'hass.home.our-lan.com'
 MQTT_PORT = 1883
-
+mqttc = mqtt.Client("MQTT_TEST")
 RELAY_CONFIG_TOPIC= "homeassistant/switch/irrigation/zone1/config"
 RELAY_COMMAND_TOPIC= "homeassistant/switch/irrigation/zone1/set"
 RELAY_STATE_TOPIC= "homeassistant/switch/irrigation/zone1/state"
@@ -22,13 +17,11 @@ def on_message(client, userdata, message):
     logging.debug("message qos="+message.qos)
     logging.debug("message retain flag="+message.retain)
 
-mqttc = mqtt.Client("MQTT_TEST")
+
 
 try:
     logging.info("Connecting to MQTT on %s:%s"%(MQTT_HOST,MQTT_PORT))
-    mqttc.connect(MQTT_HOST,MQTT_PORT)
-    mqttc.on_message=on_message
-    mqttc.loop_start()
+
     logging.debug("Subscribing to topic - %s" % RELAY_COMMAND_TOPIC)
     mqttc.publish(RELAY_CONFIG_TOPIC, retain=True)
     mqttc.publish("homeassistant/switch/irrigation/config", retain=True)
