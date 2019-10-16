@@ -15,7 +15,7 @@ class Zone(threading.Thread):
         self.liters_used = 0
         self.flow_rate = 0
         self.watering = 0
-        self._stop = threading.Event()
+        self._stopper = threading.Event()
         GPIO.setup(self.relay_pin, GPIO.OUT)
         GPIO.output(self.relay_pin, GPIO.HIGH)
         # setting up the sensor pin
@@ -28,12 +28,12 @@ class Zone(threading.Thread):
     def water_used_in_liters(self):
         return self.liters_used
     def start_watering(self):
-        logging.debug("Thread for zone %d asked to start watering" % (i.zone_id))
+        logging.debug("Thread for zone %d asked to start watering" % (self.zone_id))
         GPIO.output(self.relay_pin,GPIO.LOW)
         self.watering = 1
 
     def stop_watering(self):
-        logging.debug("Thread for zone %d asked to stop watering" % (i.zone_id))
+        logging.debug("Thread for zone %d asked to stop watering" % (self.zone_id))
         GPIO.output(self.relay_pin, GPIO.HIGH)
         self.watering = 0
 
@@ -44,11 +44,10 @@ class Zone(threading.Thread):
             return 'Off'
 
     def stop(self):
-        self.stop_watering()
-        self._stop.set()
+        self._stopper.set()
 
     def stopped(self):
-        return self._stop.isSet()
+        return self._stopper.isSet()
 
     def _calculate_water(self):
         stamp1 = self._water_counter
@@ -61,8 +60,11 @@ class Zone(threading.Thread):
     def run(self):
         while not self.stopped():
             self._calculate_water()
-
-        logging.debug("Thread for zone %d asked to stop" % (i.zone_id))
+            logging.debug("Zone %d - State %s - CurrentFlow %f - TotalVolume %f" % (
+            self.zone_id, self.watering, self.flow_rate, self.water_used_in_liters()))
+        if self.watering:
+            self.stop_watering()
+        logging.debug("Thread for zone %d asked to stop" % (self.zone_id))
 
 
 
