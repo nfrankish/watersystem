@@ -39,9 +39,16 @@ class Zone(threading.Thread):
 
     def get_state(self):
         if self.watering:
-            return 'On'
+            return 'ON'
         else:
-            return 'Off'
+            return 'OFF'
+    def set_state(self, state):
+        logging.debug("Setting state to %s" % state)
+        if state == "ON":
+            self.start_watering()
+        if state == "OFF":
+            self.stop_watering()
+
 
     def stop(self):
         self._stopper.set()
