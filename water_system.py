@@ -10,7 +10,7 @@ import logging
 zones = []
 sensors = OrderedDict([
     ("TotalWaterUsed", dict(name="TotalWaterUsed",name_pretty="Total Water Consumed",typeformat='%f', unit="L", device_class="water",icon="mdi:water")),
-    ("CurrentCycleRemaining", dict(name="CurrentCycleRemaining",name_pretty="Time Remaining in Cycle",typeformat='%', unit="minutes", device_class="timer",icon="mdi:timer")),
+    ("CurrentCycleRemaining", dict(name="CurrentCycleRemaining",name_pretty="Time Remaining in Cycle",typeformat='%', unit="", device_class="timer",icon="mdi:timer")),
     ("CurrentFlowRate", dict(name="CurrentFlowRate",name_pretty="Water Flow Rate",typeformat='%f', unit="L/m", device_class="water",icon="mdi:water-pump"))
 
 
@@ -24,17 +24,19 @@ mqttc = mqtt.Client("Irrigation_system")
 
 def on_message(client, userdata, message):
     global zones
-    zid = int(message.topic.split("/")[3].replace("zone",""))
+    zid = int(mqtt_helper.get_zone_from_relay_topic(message.topic))
     for z in zones:
         if z.zone_id == zid:
             z.set_state(message.payload.decode("utf-8"))
-            mqttc.publish(mqtt_helper.get_relay_state_topic(z.zone_id).lower(), z.get_state())
+            mqttc.publish(mqtt_helper.get_relay_state_topic(z.zone_id).lower(), z.get_state(),retain=True)
             break
 
 def setup():
     global zones
     GPIO.setmode(GPIO.BCM)
     zones.append(Zone(1,14,17))
+
+
 
 def mqtt_setup():
     global mqttc, zones, sensors
@@ -58,7 +60,7 @@ def mqtt_setup():
                 logging.debug("ignoring device_class")
             logging.debug(json.dumps(payload))
             logging.debug(mqtt_helper.get_sensor_config_topic(z.zone_id,sensor))
-            mqttc.publish(mqtt_helper.get_sensor_config_topic(z.zone_id,sensor).lower(), json.dumps(payload),)
+            mqttc.publish(mqtt_helper.get_sensor_config_topic(z.zone_id,sensor).lower(), json.dumps(payload),retain=True)
 
 
 if __name__ == '__main__':
@@ -72,17 +74,18 @@ if __name__ == '__main__':
             for i,zone in enumerate(zones):
                 logging.debug("Looping zone %d" % (zone.zone_id))
                 if not zone.is_alive():
-                    logging.info("Zone %d exited for some reason - Respawning it" % (zone.zone_id))
+                    logging.error("Zone %d exited for some reason - Respawning it" % (zone.zone_id))
                     zones[i] = Zone(zone.zone_id,zone.relay_pin,zone.sensor_pin)
                 else:
-                    sensor_data = {"TotalWaterUsed": zone.water_used_in_liters(), "CurrentCycleRemaining": "00:10:00",
+                    sensor_data = {"TotalWaterUsed": zone.water_used_in_liters(), "CurrentCycleRemaining": zone.get_time_remaining(),
                             "CurrentFlowRate": zone.flow_rate}
-                    mqttc.publish(mqtt_helper.get_sensor_state_topic(zone.zone_id).lower(), json.dumps(sensor_data), )
-                    mqttc.publish(mqtt_helper.get_relay_state_topic(zone.zone_id).lower(),zone.get_state() )
+                    mqttc.publish(mqtt_helper.get_sensor_state_topic(zone.zone_id).lower(), json.dumps(sensor_data), retain=True)
+                    mqttc.publish(mqtt_helper.get_relay_state_topic(zone.zone_id).lower(),zone.get_state(), retain=True)
 
-            time.sleep(30)
-    except:
-        logging.debug("I died in a horrible way and i dont know why or how yet")
+            time.sleep(5)
+    except Exception as e:
+        logging.error("I died in a horrible way and i dont know why or how yet")
+        logging.error(str(e))
     finally:
         try:
             for zone in zones:
@@ -90,8 +93,9 @@ if __name__ == '__main__':
                 if zone.is_alive():
                     zone.stop()
                     zone.join()
-        except:
-            logging.info("Something errored")
+        except Exception as e:
+            logging.error("Something errored")
+            logging.error(str(e))
         finally:
             GPIO.cleanup()
             logging.info("Finished shutting down - Time to exit the main thread")

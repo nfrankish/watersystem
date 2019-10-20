@@ -1,7 +1,10 @@
 import json
+import re
 
 RELAY_CONFIG_TOPIC= "homeassistant/switch/irrigation/zone%d/config"
 RELAY_COMMAND_TOPIC= "homeassistant/switch/irrigation/zone%d/set"
+RELAY_COMMAND_TOPIC_REGEX = "homeassistant\/switch\/irrigation\/zone(\d)\/set"
+
 RELAY_STATE_TOPIC= "homeassistant/switch/irrigation/zone%d/state"
 
 SENSOR_CONFIG_TOPIC= "homeassistant/sensor/zone%d/%s/config"
@@ -16,6 +19,10 @@ def get_relay_config_topic(zone_id):
 
 def get_relay_state_topic(zone_id):
     return RELAY_STATE_TOPIC % zone_id
+
+def get_zone_from_relay_topic(topic):
+    match = re.search(RELAY_COMMAND_TOPIC_REGEX,topic)
+    return match.group(1)
 
 def get_sensor_config_topic(zone_id,sensor):
     return SENSOR_CONFIG_TOPIC % (zone_id,sensor)
