@@ -11,7 +11,7 @@ zones = []
 sensors = OrderedDict([
     ("TotalWaterUsed", dict(name="TotalWaterUsed",name_pretty="Total Water Consumed",typeformat='%f', unit="L", device_class="water",icon="mdi:water")),
     ("CurrentCycleRemaining", dict(name="CurrentCycleRemaining",name_pretty="Time Remaining in Cycle",typeformat='%', unit="", device_class="timer",icon="mdi:timer")),
-    ("CurrentFlowRate", dict(name="CurrentFlowRate",name_pretty="Water Flow Rate",typeformat='%f', unit="L/m", device_class="water",icon="mdi:water-pump"))
+    ("CurrentFlowRate", dict(name="CurrentFlowRate",name_pretty="Water Flow Rate",typeformat='%f', unit="L/s", device_class="water",icon="mdi:water-pump"))
 
 
 
@@ -19,6 +19,7 @@ sensors = OrderedDict([
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 MQTT_HOST = 'hass.home.our-lan.com'
 MQTT_PORT = 1883
+STATE_FILE= "states.json"
 
 mqttc = mqtt.Client("Irrigation_system")
 
@@ -34,7 +35,18 @@ def on_message(client, userdata, message):
 def setup():
     global zones
     GPIO.setmode(GPIO.BCM)
-    zones.append(Zone(1,14,17))
+    data = []
+    try:
+        with open(STATE_FILE) as json_file:
+            data = json.load(json_file)
+    except:
+        logging.debug("State file not available - ignoring")
+    print(data)
+    if str(1) in  data:
+        logging.info("State file found for zone %d - Value %f" % (1,data[str(1)]))
+        zones.append(Zone(1,14,17,data[str(1)]))
+    else:
+        zones.append(Zone(1, 14, 17))
 
 
 
@@ -70,18 +82,23 @@ if __name__ == '__main__':
         zone.start()
     try:
         while True:
-
+            state = {}
             for i,zone in enumerate(zones):
                 logging.debug("Looping zone %d" % (zone.zone_id))
                 if not zone.is_alive():
                     logging.error("Zone %d exited for some reason - Respawning it" % (zone.zone_id))
-                    zones[i] = Zone(zone.zone_id,zone.relay_pin,zone.sensor_pin)
+                    zones[i] = Zone(zone.zone_id,zone.relay_pin,zone.sensor_pin,zone.water_used_in_liters())
                 else:
                     sensor_data = {"TotalWaterUsed": zone.water_used_in_liters(), "CurrentCycleRemaining": zone.get_time_remaining(),
                             "CurrentFlowRate": zone.flow_rate}
                     mqttc.publish(mqtt_helper.get_sensor_state_topic(zone.zone_id).lower(), json.dumps(sensor_data), retain=True)
                     mqttc.publish(mqtt_helper.get_relay_state_topic(zone.zone_id).lower(),zone.get_state(), retain=True)
-
+                    state[zone.zone_id] = zone.water_used_in_liters()
+            try:
+                with open(STATE_FILE, 'w') as outfile:
+                    json.dump(state,outfile)
+            except:
+                logging.debug("Couldnt write file, but not caring")
             time.sleep(5)
     except Exception as e:
         logging.error("I died in a horrible way and i dont know why or how yet")

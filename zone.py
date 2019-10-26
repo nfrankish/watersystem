@@ -7,19 +7,20 @@ from datetime import datetime,timedelta
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Zone(threading.Thread):
-    def __init__(self,zone_id,relay_pin,sensor_pin):
+
+    def __init__(self,zone_id,relay_pin,sensor_pin, water_used=0):
         super().__init__()
         self.zone_id = zone_id
         self.relay_pin = relay_pin
         self.sensor_pin = sensor_pin
         self._water_counter = 0
-        self.liters_used = 0
+        self.liters_used = water_used
         self.flow_rate = 0
         self.watering = 0
         self._stopper = threading.Event()
         self._start_time = datetime.now()
         self._stop_time = datetime.now()
-        self._maximum_run_time = 1
+        self._maximum_run_time = 5
 
         GPIO.setup(self.relay_pin, GPIO.OUT)
         GPIO.output(self.relay_pin, GPIO.HIGH)
@@ -93,7 +94,7 @@ class Zone(threading.Thread):
 
         if self.watering:
             self.stop_watering()
-        logging.debug("Thread for zone %d asked to stop" % (self.zone_id))
+        logging.debug("Thread for zone %d asked to stop" % (self.zone_id,))
 
 
 
