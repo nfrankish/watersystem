@@ -20,7 +20,7 @@ class Zone(threading.Thread):
         self._stopper = threading.Event()
         self._start_time = datetime.now()
         self._stop_time = datetime.now()
-        self._maximum_run_time = 5
+        self._maximum_run_time = 20
 
         GPIO.setup(self.relay_pin, GPIO.OUT)
         GPIO.output(self.relay_pin, GPIO.HIGH)
